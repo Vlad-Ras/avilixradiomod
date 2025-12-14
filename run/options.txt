@@ -12,7 +12,7 @@ darknessEffectScale:1.0
 glintSpeed:0.5
 glintStrength:0.75
 prioritizeChunkUpdates:0
-fullscreen:true
+fullscreen:false
 gamma:0.5
 graphicsMode:1
 guiScale:1
@@ -25,7 +25,7 @@ renderClouds:"true"
 renderDistance:12
 simulationDistance:12
 screenEffectScale:1.0
-soundDevice:"OpenAL Soft on Наушники гарнитуры (G435 Wireless Gaming Headset)"
+soundDevice:"OpenAL Soft on Динамики (Realtek(R) Audio)"
 autoJump:false
 operatorItemsTab:false
 autoSuggestions:true

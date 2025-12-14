@@ -2,8 +2,6 @@ package com.avilixradiomod.client.audio;
 
 import javazoom.jl.player.JavaSoundAudioDevice;
 import javazoom.jl.player.advanced.AdvancedPlayer;
-import javazoom.jl.player.advanced.PlaybackEvent;
-import javazoom.jl.player.advanced.PlaybackListener;
 
 import java.io.BufferedInputStream;
 import java.io.Closeable;
@@ -20,26 +18,41 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Volume is applied in software (PCM scaling) so it works on any audio device.
  */
 public final class Mp3StreamPlayer {
+
     private Thread thread;
     private volatile AdvancedPlayer player;
     private volatile InputStream stream;
+
     private final AtomicBoolean stopping = new AtomicBoolean(false);
 
-    // Громкость хранится здесь и читается из аудио-треда
+    /** True if the last start/play attempt failed (connection/decoder/etc). */
+    private volatile boolean failed = false;
+
+    /** Volume is read by the audio thread. */
     private final AtomicInteger volumePercent = new AtomicInteger(100);
 
     public synchronized void play(final String url, final int initialVolumePercent) {
         stop();
 
-        if (url == null || url.isBlank()) return;
-        if (!(url.startsWith("http://") || url.startsWith("https://"))) return;
+        if (url == null) return;
+        final String u = url.trim();
+        if (u.isEmpty()) return;
+        if (!(u.startsWith("http://") || u.startsWith("https://"))) return;
 
+        failed = false;
         setVolume(initialVolumePercent);
 
         stopping.set(false);
-        thread = new Thread(() -> run(url), "AvilixRadio-MP3");
+        thread = new Thread(() -> run(u), "AvilixRadio-MP3");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    /** Returns true once when a failure happened, then resets the flag. */
+    public boolean consumeFailed() {
+        if (!failed) return false;
+        failed = false;
+        return true;
     }
 
     public void setVolume(int volume) {
@@ -52,6 +65,7 @@ public final class Mp3StreamPlayer {
         player = null;
         closeQuietly(stream);
         stream = null;
+
         if (thread != null) {
             thread.interrupt();
             thread = null;
@@ -73,17 +87,13 @@ public final class Mp3StreamPlayer {
             final VolumeAudioDevice device = new VolumeAudioDevice(volumePercent);
             final AdvancedPlayer p = new AdvancedPlayer(stream, device);
 
-            p.setPlayBackListener(new PlaybackListener() {
-                @Override
-                public void playbackFinished(PlaybackEvent evt) {
-                    // no-op
-                }
-            });
-
             player = p;
             p.play();
-        } catch (Throwable ignored) {
-            // Fail silently; controller can retry later
+        } catch (Throwable t) {
+            // If we aren't stopping intentionally, mark as failed so controller can switch track.
+            if (!stopping.get()) {
+                failed = true;
+            }
         } finally {
             closeQuietly(player);
             player = null;
@@ -104,10 +114,7 @@ public final class Mp3StreamPlayer {
         }
     }
 
-    /**
-     * Audio device that applies volume by scaling PCM samples.
-     * This works even if MASTER_GAIN/VOLUME controls are not supported.
-     */
+    /** Audio device that applies volume by scaling PCM samples. */
     private static final class VolumeAudioDevice extends JavaSoundAudioDevice {
         private final AtomicInteger volumePercent;
 
@@ -119,12 +126,11 @@ public final class Mp3StreamPlayer {
         public void write(short[] samples, int offs, int len) throws javazoom.jl.decoder.JavaLayerException {
             int v = volumePercent.get();
 
-            // 0..100 -> 0..1, квадратичная кривая (мягче на низких)
+            // 0..100 -> 0..1, square curve (nicer at low volumes)
             float t = v / 100.0f;
             float gain = t * t;
 
             if (gain <= 0.0001f) {
-                // почти ноль -> тишина
                 short[] zeros = new short[len];
                 super.write(zeros, 0, len);
                 return;
@@ -134,10 +140,8 @@ public final class Mp3StreamPlayer {
             for (int i = 0; i < len; i++) {
                 int s = samples[offs + i];
                 int scaled = Math.round(s * gain);
-
                 if (scaled > 32767) scaled = 32767;
                 if (scaled < -32768) scaled = -32768;
-
                 out[i] = (short) scaled;
             }
 

@@ -2,3 +2,4 @@
 /give Dev avilixradiomod:remote
 /give Dev avilixradiomod:speaker
 /give Dev avilixradiomod:remote
+/time set day

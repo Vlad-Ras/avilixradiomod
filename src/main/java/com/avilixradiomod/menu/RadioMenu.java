@@ -18,6 +18,9 @@ public class RadioMenu extends AbstractContainerMenu {
     @Nullable
     private final RadioBlockEntity radio;
 
+    // ✅ клиентский флаг: подсветка ошибки URL в GUI
+    private boolean urlError = false;
+
     public RadioMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buf) {
         this(containerId, playerInventory, readRadio(playerInventory.player.level(), buf.readBlockPos()));
     }
@@ -37,6 +40,11 @@ public class RadioMenu extends AbstractContainerMenu {
 
     @Nullable
     public RadioBlockEntity getRadio() { return radio; }
+
+    // ✅ GUI может включать/выключать подсветку
+    public void setUrlError(boolean value) { this.urlError = value; }
+
+    public boolean hasUrlError() { return urlError; }
 
     @Override
     public boolean stillValid(Player player) {

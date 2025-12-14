@@ -63,7 +63,11 @@ public class RadioBlockEntity extends BlockEntity implements MenuProvider {
      */
     public void setSettings(String url, boolean playing, int volume) {
         if (url == null) url = "";
-        url = url.trim(); // ✅ УБИРАЕМ ПРОБЕЛЫ
+        url = url.trim();
+
+        if (playing && !isValidStreamUrl(url)) {
+            playing = false; // ✅ сервер принудительно глушит
+        }
 
         this.url = url;
         this.playing = playing;
@@ -74,6 +78,8 @@ public class RadioBlockEntity extends BlockEntity implements MenuProvider {
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
         }
     }
+
+
 
     @Override
     public Component getDisplayName() {
@@ -111,5 +117,12 @@ public class RadioBlockEntity extends BlockEntity implements MenuProvider {
     @Override
     public Packet<ClientGamePacketListener> getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    private static boolean isValidStreamUrl(String url) {
+        if (url == null) return false;
+        url = url.trim();
+        if (url.isEmpty()) return false;
+        return url.startsWith("http://") || url.startsWith("https://");
     }
 }

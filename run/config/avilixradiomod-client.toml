@@ -1,0 +1,9 @@
+[radio]
+	#Default URL shown in the GUI when empty.
+	defaultUrl = " "
+	#How many recent URLs to remember.
+	# Default: 12
+	# Range: 0 ~ 64
+	historyLimit = 12
+	#Recent URLs (client-side only).
+	urlHistory = []

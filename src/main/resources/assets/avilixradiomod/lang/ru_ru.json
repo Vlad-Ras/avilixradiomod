@@ -15,5 +15,13 @@
   "message.avilixradiomod.remote_cleared": "Пульт очищен.",
   "message.avilixradiomod.speaker_linked": "Динамик привязан к радио.",
   "message.avilixradiomod.speaker_cleared": "Привязка динамика очищена.",
-  "itemGroup.avilixradiomod": "Авиликс радио"
+  "itemGroup.avilixradiomod": "Авиликс радио",
+
+  "message.avilixradiomod.bad_url": "Неверная ссылка. Используйте http:// или https:// и не оставляйте его пустым.",
+  "message.avilixradiomod.bad_url_short": "Неверная ссылка!",
+
+  "screen.avilixradiomod.mode_label": "Режим: %s",
+  "screen.avilixradiomod.mode.normal": "Обычный",
+  "screen.avilixradiomod.mode.shuffle": "Случайно",
+  "screen.avilixradiomod.mode.repeat": "Повтор"
 }

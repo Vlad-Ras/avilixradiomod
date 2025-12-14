@@ -1,12 +1,14 @@
 package com.avilixradiomod;
 
 import com.avilixradiomod.client.ClientInit;
+import com.avilixradiomod.config.ModConfigs;
 import com.avilixradiomod.network.ModPayloads;
 import com.avilixradiomod.registry.*;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 
+import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
@@ -15,13 +17,13 @@ import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 public final class AvilixRadioMod {
     public static final String MOD_ID = "avilixradiomod";
 
-    public AvilixRadioMod(IEventBus modBus, Dist dist) {
+    public AvilixRadioMod(IEventBus modBus, Dist dist, ModContainer container) {
         ModBlocks.register(modBus);
         ModItems.register(modBus);
         ModBlockEntities.register(modBus);
         ModMenus.register(modBus);
         ModCreativeTabs.register(modBus);
-
+        ModConfigs.register(container);
 
         modBus.addListener(com.avilixradiomod.network.ModPayloads::register);
         if (dist.isClient()) {

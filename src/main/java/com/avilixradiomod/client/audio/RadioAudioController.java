@@ -2,6 +2,7 @@ package com.avilixradiomod.client.audio;
 
 import com.avilixradiomod.blockentity.RadioBlockEntity;
 import com.avilixradiomod.blockentity.SpeakerBlockEntity;
+import com.avilixradiomod.config.ModConfigs;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -11,34 +12,44 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 
-/**
- * Client-only: polls nearby speakers/radios and plays the closest active stream.
- * Adds smooth distance-based volume fade.
- */
+import java.util.List;
+import java.util.Random;
+
 public final class RadioAudioController {
-
-    private static final int SCAN_EVERY_TICKS = 10;
-
-    /** How far we scan block entities around the player (in blocks). */
-    private static final int MAX_HEAR_DISTANCE = 30;
-    private static final int SCAN_RADIUS = MAX_HEAR_DISTANCE;
-
-    /** Volume smoothing (0..1). Higher = faster response. */
-    private static final float SMOOTHING = 0.20f;
-
-    /** If target is 0 and we fall below this, stop decoding. */
-    private static final float STOP_THRESHOLD = 0.5f;
 
     private static int tickCounter = 0;
 
-    private static String currentUrl = "";
-    private static float smoothVolume = 0.0f; // 0..100
+    // URL, который введён в радио (может быть плейлист)
+    private static String currentSourceUrl = "";
+
+    // Текущий реально проигрываемый URL (из плейлиста или тот же)
+    private static String currentPlayingUrl = "";
+
+    private static float smoothVolume = 0.0f;
+
+    private static List<PlaylistEntry> playlist = List.of();
+    private static int playlistIndex = 0;
 
     private static final Mp3StreamPlayer PLAYER = new Mp3StreamPlayer();
+
+    // ---- режимы ----
+    public enum PlayMode { NORMAL, SHUFFLE, REPEAT }
+    private static PlayMode playMode = PlayMode.NORMAL;
+    private static final Random RANDOM = new Random();
+
+    // ---- псевдо-таймлайн ----
+    private static long trackStartMs = 0L;
 
     private RadioAudioController() {}
 
     public static void onClientTick(final ClientTickEvent.Post event) {
+        // ✅ читаем конфиг каждый тик (дёшево, зато точно работает)
+        final int scanEveryTicks = ModConfigs.COMMON.scanEveryTicks.get();
+        final int maxHearDistance = ModConfigs.COMMON.maxHearDistance.get();
+        final int scanRadius = maxHearDistance; // логично: сканируем как слышим
+        final float smoothing = ModConfigs.COMMON.smoothing.get().floatValue();
+        final float stopThreshold = ModConfigs.COMMON.stopThreshold.get().floatValue();
+
         final Minecraft mc = Minecraft.getInstance();
         final LocalPlayer player = mc.player;
         final ClientLevel level = mc.level;
@@ -48,49 +59,170 @@ public final class RadioAudioController {
             return;
         }
 
-        if (++tickCounter % SCAN_EVERY_TICKS != 0) return;
+        if (++tickCounter % scanEveryTicks != 0) return;
 
-        final Candidate best = findBestCandidate(level, player.blockPosition(), level.dimension());
+        final Candidate best = findBestCandidate(level, player.blockPosition(), level.dimension(), scanRadius);
         if (best == null) {
-            // No valid speaker/radio found -> fade out quickly then stop
-            smoothVolume = smoothVolume + (0.0f - smoothVolume) * SMOOTHING;
+            smoothVolume = smoothVolume + (0.0f - smoothVolume) * smoothing;
             PLAYER.setVolume((int) smoothVolume);
-            if (smoothVolume <= STOP_THRESHOLD) stopIfPlaying();
+            if (smoothVolume <= stopThreshold) stopIfPlaying();
             return;
         }
 
-        // distSqr -> distance in blocks
+        final String sourceUrl = best.url == null ? "" : best.url.trim();
+        if (sourceUrl.isEmpty()) {
+            stopIfPlaying();
+            return;
+        }
+
         final double distanceBlocks = Math.sqrt(best.distSqr);
+        final int target = computeTargetVolume(best.volume, distanceBlocks, maxHearDistance);
+        smoothVolume = smoothVolume + (target - smoothVolume) * smoothing;
 
-        // 1) Compute target volume with distance attenuation
-        final int target = computeTargetVolume(best.volume, distanceBlocks);
-
-        // 2) Smooth volume change
-        smoothVolume = smoothVolume + (target - smoothVolume) * SMOOTHING;
-
-        // 3) Apply to player
-        if (!best.url.equals(currentUrl)) {
-            currentUrl = best.url;
-            PLAYER.play(currentUrl, (int) smoothVolume);
+        // сменился источник (URL/playlist) -> перезагрузка и старт
+        if (!sourceUrl.equals(currentSourceUrl)) {
+            currentSourceUrl = sourceUrl;
+            reloadAndPlayFirst((int) smoothVolume);
         } else {
             PLAYER.setVolume((int) smoothVolume);
         }
 
-        // 4) Stop stream when essentially silent and target is 0
-        if (smoothVolume <= STOP_THRESHOLD && target == 0) {
+        // если трек умер -> следующий
+        if (PLAYER.consumeFailed()) {
+            playNext((int) smoothVolume);
+        }
+
+        if (smoothVolume <= stopThreshold && target == 0) {
             stopIfPlaying();
         }
     }
 
+    // ------------------ Публичные методы для GUI ------------------
+
+    public static void nextTrack() {
+        playNext((int) smoothVolume);
+    }
+
+    public static void prevTrack() {
+        if (playlist.isEmpty()) return;
+
+        if (playMode == PlayMode.SHUFFLE) {
+            playlistIndex = RANDOM.nextInt(playlist.size());
+        } else {
+            playlistIndex = Math.max(0, playlistIndex - 1);
+        }
+
+        startIndex(playlistIndex, (int) smoothVolume);
+    }
+
+    public static void cyclePlayMode() {
+        playMode = switch (playMode) {
+            case NORMAL -> PlayMode.SHUFFLE;
+            case SHUFFLE -> PlayMode.REPEAT;
+            case REPEAT -> PlayMode.NORMAL;
+        };
+    }
+
+    public static PlayMode getPlayMode() {
+        return playMode;
+    }
+
+    public static String getCurrentTrackTitle() {
+        if (playlist.isEmpty()) return "";
+        PlaylistEntry e = playlist.get(playlistIndex);
+        if (e.title() != null && !e.title().isBlank()) return e.title();
+        return "Track " + (playlistIndex + 1) + "/" + playlist.size();
+    }
+
+    /** 0..1 псевдо-прогресс (для живых стримов длины нет) */
+    public static float getPseudoProgress() {
+        if (trackStartMs == 0L) return 0f;
+        long elapsed = System.currentTimeMillis() - trackStartMs;
+        return (elapsed % 180_000L) / 180_000f; // 180 секунд "круг"
+    }
+
+    // ------------------ Внутренняя логика ------------------
+
+    private static void reloadAndPlayFirst(int vol) {
+        playlist = List.of();
+        playlistIndex = 0;
+        currentPlayingUrl = "";
+        trackStartMs = 0L;
+
+        try {
+            playlist = PlaylistLoader.load(currentSourceUrl);
+        } catch (Throwable ignored) {
+            playlist = List.of();
+        }
+
+        if (playlist.isEmpty()) {
+            stopIfPlaying();
+            return;
+        }
+
+        startIndex(0, vol);
+    }
+
+    private static void startIndex(int idx, int vol) {
+        if (playlist.isEmpty()) {
+            stopIfPlaying();
+            return;
+        }
+        if (idx < 0 || idx >= playlist.size()) {
+            stopIfPlaying();
+            return;
+        }
+
+        playlistIndex = idx;
+        currentPlayingUrl = playlist.get(playlistIndex).url();
+        trackStartMs = System.currentTimeMillis();
+        PLAYER.play(currentPlayingUrl, vol);
+    }
+
+    private static void playNext(int vol) {
+        if (playlist.isEmpty()) {
+            stopIfPlaying();
+            return;
+        }
+
+        switch (playMode) {
+            case REPEAT -> {
+                // остаёмся на текущем
+            }
+            case SHUFFLE -> {
+                if (playlist.size() > 1) {
+                    int next;
+                    do {
+                        next = RANDOM.nextInt(playlist.size());
+                    } while (next == playlistIndex);
+                    playlistIndex = next;
+                }
+            }
+            case NORMAL -> {
+                playlistIndex++;
+                if (playlistIndex >= playlist.size()) {
+                    stopIfPlaying();
+                    return;
+                }
+            }
+        }
+
+        startIndex(playlistIndex, vol);
+    }
+
     private static void stopIfPlaying() {
-        currentUrl = "";
+        currentSourceUrl = "";
+        currentPlayingUrl = "";
+        playlist = List.of();
+        playlistIndex = 0;
         smoothVolume = 0.0f;
+        trackStartMs = 0L;
         PLAYER.stop();
     }
 
-    private static Candidate findBestCandidate(ClientLevel level, BlockPos center, ResourceKey<Level> dim) {
+    private static Candidate findBestCandidate(ClientLevel level, BlockPos center, ResourceKey<Level> dim, int scanRadius) {
         Candidate best = null;
-        final int r = SCAN_RADIUS;
+        final int r = scanRadius;
 
         for (int dx = -r; dx <= r; dx++) {
             for (int dy = -r; dy <= r; dy++) {
@@ -151,20 +283,12 @@ public final class RadioAudioController {
 
     private record Candidate(String url, int volume, double distSqr) {}
 
-    /**
-     * Distance-based attenuation.
-     * baseVolume is 0..100, returns 0..100.
-     */
-    private static int computeTargetVolume(int baseVolume, double distanceBlocks) {
+    private static int computeTargetVolume(int baseVolume, double distanceBlocks, int maxHearDistance) {
         double d = Math.max(0.0, distanceBlocks);
-        double max = MAX_HEAR_DISTANCE;
-
+        double max = Math.max(1.0, maxHearDistance);
         if (d >= max) return 0;
 
-        // 1.0 near speaker -> 0.0 at max distance
         double x = 1.0 - (d / max);
-
-        // smoother curve for speech
         double att = x * x;
 
         return (int) Math.round(baseVolume * att);

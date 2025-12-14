@@ -19,5 +19,9 @@
   "msg.avilixradiomod.remote_cleared": "Remote cleared.",
   "msg.avilixradiomod.speaker_linked": "Speaker linked to radio.",
   "msg.avilixradiomod.speaker_unlinked": "Speaker unlinked.",
-  "itemGroup.avilixradiomod": "Avilix Radio"
+  "itemGroup.avilixradiomod": "Avilix Radio",
+
+  "message.avilixradiomod.bad_url": "Invalid stream URL. Use http:// or https:// and do not leave it empty.",
+  "message.avilixradiomod.bad_url_short": "Invalid URL!"
+
 }
