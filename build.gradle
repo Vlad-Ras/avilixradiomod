@@ -1,0 +1,92 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.121'
+}
+
+group = project.mod_group_id
+version = project.mod_version
+
+base {
+    archivesName = project.mod_id
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    withSourcesJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // MP3 decoding/playback (LGPL). Embedded via Jar-in-Jar so the mod runs out-of-the-box.
+    implementation "javazoom:jlayer:1.0.1"
+    jarJar(implementation("javazoom:jlayer:1.0.1")) {
+        version {
+            // This mod is developed and tested with 1.0.1.
+            strictly "[1.0.1,1.0.2)"
+            prefer "1.0.1"
+        }
+    }
+    // The implementation() above already puts JLayer on the dev runtime classpath.
+    // (Jar-in-Jar embedding is handled by jarJar.)
+}
+
+neoForge {
+    version = project.neo_version
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+        }
+        data {
+            data()
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').absolutePath, '--existing', file('src/main/resources/').absolutePath
+        }
+    }
+
+    mods {
+        "${project.mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+sourceSets {
+    main {
+        resources {
+            srcDir 'src/generated/resources'
+        }
+    }
+}
+
+tasks.withType(ProcessResources).configureEach {
+    // Expand properties in neoforge.mods.toml
+    def props = [
+            mod_id: project.mod_id,
+            mod_name: project.mod_name,
+            mod_version: project.mod_version,
+            mod_authors: project.mod_authors,
+            mod_description: project.mod_description,
+            minecraft_version: project.minecraft_version,
+            neo_version: project.neo_version
+    ]
+
+    inputs.properties props
+
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand props
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}

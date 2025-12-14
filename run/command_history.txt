@@ -1,0 +1,4 @@
+/give Dev avilixradiomod:radio
+/give Dev avilixradiomod:remote
+/give Dev avilixradiomod:speaker
+/give Dev avilixradiomod:remote
