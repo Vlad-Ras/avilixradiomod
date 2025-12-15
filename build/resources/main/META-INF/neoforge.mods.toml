@@ -1,6 +1,8 @@
 modLoader="javafml"
 loaderVersion="[4,)"
 license="All Rights Reserved"
+logoFile="logo.png"
+modId="avilixradiomod"
 
 [[mods]]
 modId="avilixradiomod"
@@ -8,6 +10,7 @@ version="1.0.0"
 displayName="Avilix Radio Mod"
 authors="Avilix"
 description='''A streaming radio with speakers and a remote.'''
+logoFile="logo.png"
 
 [[dependencies.avilixradiomod]]
 modId="neoforge"
@@ -15,6 +18,7 @@ type="required"
 versionRange="[21.1.125,)"
 ordering="NONE"
 side="BOTH"
+logoFile="logo.png"
 
 [[dependencies.avilixradiomod]]
 modId="minecraft"
@@ -22,3 +26,4 @@ type="required"
 versionRange="[1.21.1,1.22)"
 ordering="NONE"
 side="BOTH"
+logoFile="logo.png"

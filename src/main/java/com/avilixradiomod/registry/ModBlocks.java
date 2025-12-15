@@ -22,6 +22,7 @@ public final class ModBlocks {
                     .mapColor(MapColor.COLOR_BLUE)
                     .strength(2.0F, 6.0F)
                     .sound(SoundType.METAL)
+                    // ❌ requiresCorrectToolForDrops УБРАТЬ
             )
     );
 
@@ -31,6 +32,7 @@ public final class ModBlocks {
                     .mapColor(MapColor.COLOR_GRAY)
                     .strength(2.0F, 6.0F)
                     .sound(SoundType.METAL)
+                    // ❌ requiresCorrectToolForDrops УБРАТЬ
             )
     );
 

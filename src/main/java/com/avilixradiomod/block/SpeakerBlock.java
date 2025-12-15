@@ -10,7 +10,10 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
@@ -24,6 +27,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import org.jetbrains.annotations.Nullable;
+
 
 public class SpeakerBlock extends BaseEntityBlock {
 
@@ -124,4 +128,29 @@ public class SpeakerBlock extends BaseEntityBlock {
             );
         }
     }
+
+    @Override
+    public float getDestroyProgress(BlockState state, Player player, BlockGetter level, BlockPos pos) {
+        ItemStack tool = player.getMainHandItem();
+
+        // ✅ если в руке ТОПОР
+        if (tool.getItem() instanceof AxeItem) {
+            return super.getDestroyProgress(state, player, level, pos) * 4.0F;
+        }
+
+        // рука / другие инструменты
+        return super.getDestroyProgress(state, player, level, pos);
+    }
+
+
+    @Override
+    public void playerDestroy(Level level, Player player, BlockPos pos, BlockState state,
+                              @Nullable BlockEntity blockEntity, ItemStack tool) {
+        super.playerDestroy(level, player, pos, state, blockEntity, tool);
+
+        if (!level.isClientSide && !player.isCreative()) {
+            popResource(level, pos, new ItemStack(this.asItem()));
+        }
+    }
+
 }

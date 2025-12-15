@@ -3,3 +3,12 @@
 /give Dev avilixradiomod:speaker
 /give Dev avilixradiomod:remote
 /time set day
+/gamerule doDaylightCycle false
+/datapack list
+/recipe give Dev minecraft:acacia_boat
+/reload
+/return fail
+/reload
+/recipe give @p avilixradiomod:radio
+/recipe give @p avilixradio:radio
+/recipe give @p avilixradiomod:radio

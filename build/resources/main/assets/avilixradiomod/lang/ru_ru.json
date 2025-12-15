@@ -23,5 +23,6 @@
   "screen.avilixradiomod.mode_label": "Режим: %s",
   "screen.avilixradiomod.mode.normal": "Обычный",
   "screen.avilixradiomod.mode.shuffle": "Случайно",
-  "screen.avilixradiomod.mode.repeat": "Повтор"
+  "screen.avilixradiomod.mode.repeat": "Повтор",
+  "screen.avilixradiomod.history": "История"
 }

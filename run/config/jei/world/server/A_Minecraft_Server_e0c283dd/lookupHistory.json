@@ -1,0 +1,5 @@
+[
+  {"version":1},
+  {"ingredient":{"id":"avilixradiomod:speaker"},"type":"item_stack","bookmarkType":"INGREDIENT"},
+  {"ingredient":{"id":"avilixradiomod:radio"},"type":"item_stack","bookmarkType":"INGREDIENT"}
+]

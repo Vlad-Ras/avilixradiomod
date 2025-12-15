@@ -2,6 +2,7 @@ plugins {
     id 'java-library'
     id 'maven-publish'
     id 'net.neoforged.moddev' version '2.0.121'
+
 }
 
 group = project.mod_group_id
@@ -20,10 +21,16 @@ java {
 
 repositories {
     mavenCentral()
+    maven { url = "https://maven.blamejared.com" }
+    maven { url = "https://modmaven.dev" }
+
+
 }
 
 dependencies {
     // MP3 decoding/playback (LGPL). Embedded via Jar-in-Jar so the mod runs out-of-the-box.
+    compileOnly "mezz.jei:jei-1.21.1-neoforge-api:19.25.1.332"
+    runtimeOnly "mezz.jei:jei-1.21.1-neoforge:19.25.1.332"
     implementation "javazoom:jlayer:1.0.1"
     jarJar(implementation("javazoom:jlayer:1.0.1")) {
         version {
@@ -62,10 +69,11 @@ neoForge {
 sourceSets {
     main {
         resources {
-            srcDir 'src/generated/resources'
+            srcDirs = ['src/main/resources', 'src/generated/resources']
         }
     }
 }
+
 
 tasks.withType(ProcessResources).configureEach {
     // Expand properties in neoforge.mods.toml

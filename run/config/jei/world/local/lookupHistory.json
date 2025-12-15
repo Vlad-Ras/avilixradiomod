@@ -1,0 +1,9 @@
+[
+  {"version":1},
+  {"ingredient":{"id":"avilixradiomod:remote","components":{"minecraft:custom_data":{"Remote":{"X":15,"Y":98,"Dim":"minecraft:overworld","Z":-32}}}},"type":"item_stack","bookmarkType":"INGREDIENT"},
+  {"ingredient":{"id":"avilixradiomod:radio"},"type":"item_stack","bookmarkType":"INGREDIENT"},
+  {"ingredient":{"id":"avilixradiomod:speaker"},"type":"item_stack","bookmarkType":"INGREDIENT"},
+  {"ingredient":{"id":"minecraft:jukebox"},"type":"item_stack","bookmarkType":"INGREDIENT"},
+  {"ingredient":{"id":"minecraft:crafting_table"},"type":"item_stack","bookmarkType":"INGREDIENT"},
+  {"ingredient":{"id":"minecraft:diamond_axe","components":{"minecraft:damage":8}},"type":"item_stack","bookmarkType":"INGREDIENT"}
+]

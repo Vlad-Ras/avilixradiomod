@@ -1,6 +1,7 @@
 package com.avilixradiomod.client.screen;
 
 import com.avilixradiomod.blockentity.RadioBlockEntity;
+import com.avilixradiomod.client.UrlHistory;
 import com.avilixradiomod.client.audio.RadioAudioController;
 import com.avilixradiomod.menu.RadioMenu;
 import com.avilixradiomod.network.RadioSettingsPayload;
@@ -13,7 +14,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-/** Simple radio configuration screen (URL + play/stop + volume + playlist controls). */
+/** Radio configuration screen (URL + play/stop + volume + playlist controls + URL history panel). */
 public final class RadioScreen extends AbstractContainerScreen<RadioMenu> {
 
     private Button modeButton;
@@ -28,9 +29,12 @@ public final class RadioScreen extends AbstractContainerScreen<RadioMenu> {
     // автоподстановка дефолта при фокусе (только если пусто) — 1 раз за фокус
     private boolean defaultInjected = false;
 
+    // layout cache
+    private int mainX, mainW;
+    private int historyX, historyW;
+
     public RadioScreen(RadioMenu menu, Inventory inv, Component title) {
         super(menu, inv, title);
-
         this.imageWidth = 176;
         this.imageHeight = 190;
     }
@@ -43,96 +47,106 @@ public final class RadioScreen extends AbstractContainerScreen<RadioMenu> {
         final int left = this.leftPos;
         final int top = this.topPos;
 
-        // Layout
-        int yUrl = top + 28;
-        int yVolume = top + 56;
-        int yButtons = top + 80;
-        int yPlayer = top + 104;
+        // ---------- LAYOUT ----------
+        // правая панель истории ВНУТРИ 176px
+        this.historyW = 64;
+        final int gap = 6;
 
-        // URL (делаем ширину меньше, чтобы справа влезла кнопка ▼)
+        // основная зона слева
+        this.mainX = left + 10;
+        this.mainW = this.imageWidth - 20 - gap - historyW;
+
+        // правая зона
+        this.historyX = mainX + mainW + gap;
+
+        // Y
+        final int yUrl = top + 28;
+        final int yVolume = top + 56;
+        final int yButtons = top + 80;
+        final int yPlayer = top + 104;
+
+        // ---------- URL ----------
         this.urlBox = new EditBox(
                 this.font,
-                left + 10, yUrl,
-                142, 16,
+                mainX, yUrl,
+                mainW, 16,
                 Component.translatable("screen.avilixradiomod.url")
         );
         this.urlBox.setMaxLength(8192);
 
         String initial = radio != null ? safe(radio.getUrl()).trim() : "";
-        if (initial.isEmpty()) initial = com.avilixradiomod.client.UrlHistory.getDefaultUrl();
+        if (initial.isEmpty()) initial = UrlHistory.getDefaultUrl();
         this.urlBox.setValue(initial);
-
         this.addRenderableWidget(this.urlBox);
 
-        // Сбрасываем красное состояние, когда URL стал валидным (фокус НЕ трогаем)
+        // сброс подсветки ошибки, если стало валидно
         this.urlBox.setResponder(value -> {
             if (menu.hasUrlError() && isValidStreamUrl(value)) {
                 menu.setUrlError(false);
             }
         });
 
-        // Dropdown widget (below url box)
+        // ---------- HISTORY DROPDOWN (right panel) ----------
         if (historyDropdown == null) {
-            historyDropdown = new HistoryDropdown(0, 0, 156, url -> {
+            historyDropdown = new HistoryDropdown(0, 0, historyW, url -> {
                 urlBox.setValue(url);
                 menu.setUrlError(false);
+                historyDropdown.close();
             });
             this.addRenderableWidget(historyDropdown);
         } else {
             historyDropdown.close();
         }
 
-        // ▼ button next to url box (в пределах 176px)
+        // кнопка ▼ в правой колонке (под заголовком "Ссылка на поток")
         this.historyButton = Button.builder(Component.literal("▼"), b -> {
                     if (historyDropdown.isOpen()) {
                         historyDropdown.close();
                     } else {
-                        historyDropdown.openBelow(left + 10, yUrl + 18, 156);
+                        // открываем СПРАВА, под кнопкой ▼
+                        historyDropdown.openBelow(historyX, yUrl + 18, historyW);
                     }
                 })
-                .bounds(left + 10 + 142 + 2, yUrl, 22, 16)
+                .bounds(historyX, yUrl, historyW, 16)
                 .build();
         this.addRenderableWidget(this.historyButton);
 
-        // Volume
+        // ---------- VOLUME ----------
         final int volume = radio != null ? radio.getVolume() : 50;
-        this.volumeSlider = new VolumeSlider(left + 10, yVolume, 156, 20, volume);
+        this.volumeSlider = new VolumeSlider(mainX, yVolume, mainW, 20, volume);
         this.addRenderableWidget(this.volumeSlider);
 
-        // Play / Stop
+        // ---------- PLAY / SAVE (left panel) ----------
         this.playStopButton = Button.builder(getPlayStopLabel(), btn -> {
                     sendSettings(!isPlayingNow());
                     btn.setMessage(getPlayStopLabel());
                 })
-                .bounds(left + 10, yButtons, 76, 20)
+                .bounds(mainX, yButtons, Math.max(40, mainW / 2 - 2), 20)
                 .build();
         this.addRenderableWidget(this.playStopButton);
 
-        // Save
         this.addRenderableWidget(Button.builder(
                         Component.translatable("screen.avilixradiomod.save"),
                         btn -> sendSettings(isPlayingNow()))
-                .bounds(left + 90, yButtons, 76, 20)
+                .bounds(mainX + Math.max(40, mainW / 2 + 2), yButtons, Math.max(40, mainW - (Math.max(40, mainW / 2 + 2) - 0)), 20)
                 .build());
 
-        // ⏮ Prev
+        // ---------- PLAYER CONTROLS ----------
         this.addRenderableWidget(Button.builder(Component.literal("⏮"),
                         b -> RadioAudioController.prevTrack())
-                .bounds(left + 10, yPlayer, 24, 20)
+                .bounds(mainX, yPlayer, 24, 20)
                 .build());
 
-        // ⏭ Next
         this.addRenderableWidget(Button.builder(Component.literal("⏭"),
                         b -> RadioAudioController.nextTrack())
-                .bounds(left + 38, yPlayer, 24, 20)
+                .bounds(mainX + 28, yPlayer, 24, 20)
                 .build());
 
-        // Mode (dynamic)
         this.modeButton = Button.builder(getModeLabel(), b -> {
                     RadioAudioController.cyclePlayMode();
                     b.setMessage(getModeLabel());
                 })
-                .bounds(left + 66, yPlayer, 52, 20)
+                .bounds(mainX + 56, yPlayer, 70, 20) // чуть шире, чтобы влезал текст
                 .build();
         this.addRenderableWidget(this.modeButton);
     }
@@ -143,15 +157,15 @@ public final class RadioScreen extends AbstractContainerScreen<RadioMenu> {
 
         if (urlBox == null) return;
 
-        // Автоподстановка дефолта при фокусе (dropdown НЕ открываем автоматически)
+        // автоподстановка дефолта при фокусе (не открываем dropdown автоматически)
         if (urlBox.isFocused()) {
             String v = urlBox.getValue();
             if (!defaultInjected && (v == null || v.trim().isEmpty())) {
-                String def = com.avilixradiomod.client.UrlHistory.getDefaultUrl();
+                String def = UrlHistory.getDefaultUrl();
                 if (def != null && !def.isBlank()) {
                     urlBox.setValue(def);
                     urlBox.setCursorPosition(def.length());
-                    urlBox.setHighlightPos(0); // выделить всё
+                    urlBox.setHighlightPos(0);
                 }
                 defaultInjected = true;
             }
@@ -162,7 +176,7 @@ public final class RadioScreen extends AbstractContainerScreen<RadioMenu> {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // Закрываем dropdown при клике мимо него и мимо кнопки ▼
+        // закрываем dropdown при клике мимо него и мимо кнопки ▼
         if (historyDropdown != null && historyDropdown.isOpen()) {
             boolean overDropdown =
                     mouseX >= historyDropdown.getX() && mouseX < historyDropdown.getX() + historyDropdown.getWidth()
@@ -182,7 +196,6 @@ public final class RadioScreen extends AbstractContainerScreen<RadioMenu> {
 
     @Override
     public void removed() {
-        // Persist URL/volume when the screen closes.
         sendSettings(isPlayingNow());
         if (historyDropdown != null) historyDropdown.close();
         super.removed();
@@ -196,13 +209,20 @@ public final class RadioScreen extends AbstractContainerScreen<RadioMenu> {
         // title
         g.drawString(this.font, this.title, this.leftPos + 10, this.topPos + 6, 0xFFFFFF);
 
-        // URL label (red if invalid)
+        // URL label
         int urlColor = menu.hasUrlError() ? 0xFF5555 : 0xFFFFFF;
         g.drawString(this.font,
                 Component.translatable("screen.avilixradiomod.url"),
                 this.leftPos + 10,
                 this.topPos + 18,
                 urlColor);
+
+        // HISTORY label (right)
+        g.drawString(this.font,
+                Component.translatable("screen.avilixradiomod.history"),
+                historyX,
+                this.topPos + 18,
+                0xFFFFFF);
 
         // Volume label
         g.drawString(this.font,
@@ -237,7 +257,6 @@ public final class RadioScreen extends AbstractContainerScreen<RadioMenu> {
                 this.topPos + 138,
                 0xAAAAAA);
 
-
         // Timeline (indicator only)
         int barX = this.leftPos + 10;
         int barY = this.topPos + 150;
@@ -260,7 +279,7 @@ public final class RadioScreen extends AbstractContainerScreen<RadioMenu> {
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        // no labels, we draw in renderBg
+        // drawn in renderBg
     }
 
     private boolean isPlayingNow() {
@@ -281,7 +300,6 @@ public final class RadioScreen extends AbstractContainerScreen<RadioMenu> {
             case REPEAT -> Component.translatable("screen.avilixradiomod.mode.repeat");
         };
     }
-
 
     private static boolean isValidStreamUrl(String url) {
         if (url == null) return false;
@@ -317,7 +335,7 @@ public final class RadioScreen extends AbstractContainerScreen<RadioMenu> {
 
         // remember only valid urls
         if (isValidStreamUrl(url)) {
-            com.avilixradiomod.client.UrlHistory.remember(url);
+            UrlHistory.remember(url);
         }
 
         PacketDistributor.sendToServer(new RadioSettingsPayload(radio.getBlockPos(), url, playing, volume));
