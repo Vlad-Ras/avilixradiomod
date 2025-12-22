@@ -29,8 +29,6 @@ repositories {
 
 dependencies {
     // MP3 decoding/playback (LGPL). Embedded via Jar-in-Jar so the mod runs out-of-the-box.
-    compileOnly "mezz.jei:jei-1.21.1-neoforge-api:19.25.1.332"
-    runtimeOnly "mezz.jei:jei-1.21.1-neoforge:19.25.1.332"
     implementation "javazoom:jlayer:1.0.1"
     jarJar(implementation("javazoom:jlayer:1.0.1")) {
         version {

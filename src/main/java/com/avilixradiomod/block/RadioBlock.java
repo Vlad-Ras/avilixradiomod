@@ -38,7 +38,7 @@ public class RadioBlock extends BaseEntityBlock {
     public RadioBlock(Properties properties) {
         super(properties);
         // ✅ дефолтное состояние
-        this.registerDefaultState(this.stateDefinition.any().setValue(FACING, Direction.NORTH));
+        this.registerDefaultState(this.stateDefinition.any().setValue(FACING, Direction.SOUTH));
     }
 
     // ✅ обязательно для Minecraft 1.21+

@@ -24,6 +24,6 @@ C:\\Users\\Cybershop\\.gradle\\caches\\neoformruntime\\assets
 avilixradiomod
 --all
 --output
-E:\\avilixradiomod-neoforge-1.21.1\\src\\generated\\resources
+E:\\Mods\\avilixradiomod-neoforge-1.21.1\\src\\generated\\resources
 --existing
-E:\\avilixradiomod-neoforge-1.21.1\\src\\main\\resources
+E:\\Mods\\avilixradiomod-neoforge-1.21.1\\src\\main\\resources
